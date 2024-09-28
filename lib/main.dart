@@ -82,6 +82,14 @@ class _DemoState extends State<Demo> with SingleTickerProviderStateMixin {
     _controller.value = newContVal;
   }
 
+  void dragEnd(DragEndDetails d) {
+    if (_controller.value < 0.5) {
+      _controller.animateTo(0.0, duration: const Duration(milliseconds: 300));
+    } else {
+      _controller.animateTo(1.0, duration: const Duration(milliseconds: 300));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -91,6 +99,7 @@ class _DemoState extends State<Demo> with SingleTickerProviderStateMixin {
             animation: _animation,
             builder: (context, child) {
               return GestureDetector(
+                onVerticalDragEnd: dragEnd,
                 onVerticalDragStart: onDragStart,
                 onVerticalDragUpdate: dragUpdate,
                 child: Container(

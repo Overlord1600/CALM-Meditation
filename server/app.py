@@ -3,10 +3,11 @@ from pydub import AudioSegment
 import tempfile
 import os
 import numpy as np
+from AccelBrainBeat.brainbeat.binaural_beat import BinauralBeat
 
 app = Flask(__name__)
 
-def mix_audios(audio_segment1, audio_segment2, background_volume=-10):
+def mix_audios(audio_segment1, audio_segment2, background_volume=-5):
     try:
         if len(audio_segment2) < len(audio_segment1):
             loops = (len(audio_segment1) // len(audio_segment2)) + 1
@@ -19,45 +20,41 @@ def mix_audios(audio_segment1, audio_segment2, background_volume=-10):
         print(f"Error mixing audios: {e}")
         return None
 
-def create_gentle_binaural_audio(audio, base_freq=100, freq_diff=6, effect_strength=0.05):
-    samples = np.array(audio.get_array_of_samples()).astype(np.float32)
+def create_binaural_audio(audio, base_freq=100, freq_diff=6, effect_strength=0.2):
+    # Create BinauralBeat object
+    brain_beat = BinauralBeat()
     
-    if audio.channels == 1:
-        samples = np.column_stack((samples, samples))
-    else:
-        samples = samples.reshape((-1, 2))
+    # Calculate the second frequency
+    second_freq = base_freq + freq_diff
     
-    duration = len(samples) / audio.frame_rate
-    t = np.linspace(0, duration, len(samples), False)
+    # Create a temporary file to save the binaural beat
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+        binaural_file = tmp_file.name
     
-    left_freq = base_freq
-    right_freq = base_freq + freq_diff
-    
-    left_wave = np.sin(2 * np.pi * left_freq * t)
-    right_wave = np.sin(2 * np.pi * right_freq * t)
-    
-    # Apply a very gentle binaural effect
-    left_channel = samples[:, 0] * (1 - effect_strength) + samples[:, 0] * effect_strength * left_wave
-    right_channel = samples[:, 1] * (1 - effect_strength) + samples[:, 1] * effect_strength * right_wave
-    
-    # Combine channels
-    stereo_audio = np.column_stack((left_channel, right_channel))
-    
-    # Normalize to prevent any potential clipping
-    max_val = np.max(np.abs(stereo_audio))
-    if max_val > 32767:
-        stereo_audio = stereo_audio * (32767 / max_val)
-    
-    stereo_audio = np.int16(stereo_audio)
-    
-    binaural_audio = AudioSegment(
-        stereo_audio.tobytes(),
-        frame_rate=audio.frame_rate,
-        sample_width=2,
-        channels=2
+    # Generate binaural beat
+    brain_beat.save_beat(
+        output_file_name=binaural_file,
+        frequencys=(base_freq, second_freq),
+        play_time=len(audio) / 1000,  # pydub works in milliseconds
+        volume=effect_strength
     )
     
-    return binaural_audio
+    # Load the generated binaural beat
+    binaural_audio = AudioSegment.from_wav(binaural_file)
+    
+    # Ensure binaural audio matches the length of original audio
+    if len(binaural_audio) < len(audio):
+        binaural_audio = binaural_audio + AudioSegment.silent(duration=len(audio) - len(binaural_audio))
+    else:
+        binaural_audio = binaural_audio[:len(audio)]
+    
+    # Mix original audio with binaural beat
+    mixed_audio = audio.overlay(binaural_audio)
+    
+    # Clean up the temporary file
+    os.remove(binaural_file)
+    
+    return mixed_audio
 
 @app.route('/process_audio', methods=['POST'])
 def process_audio():
@@ -75,13 +72,13 @@ def process_audio():
         if mixed is None:
             return jsonify({"error": "Error processing the audio."}), 500
 
-        binaural_audio = create_gentle_binaural_audio(mixed, base_freq=100, freq_diff=6, effect_strength=0.05)
+        binaural_audio = create_binaural_audio(mixed, base_freq=100, freq_diff=6, effect_strength=0.2)
 
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_output_file:
             binaural_audio.export(tmp_output_file.name, format="mp3", bitrate="192k")
             tmp_output_file_path = tmp_output_file.name
 
-        return send_file(tmp_output_file_path, as_attachment=True, download_name="final_binaural_output.mp3")
+        return send_file(tmp_output_file_path, as_attachment=True, download_name="final_output.mp3")
     except Exception as e:
         print(f"Error processing audio: {e}")
         return jsonify({"error": "An error occurred while processing the audio."}), 500

@@ -1,8 +1,8 @@
-import 'package:calm/Backend/api_call.dart';
+
+import 'package:calm/Screens/final_audio_player.dart';
 import 'package:calm/Text%20to%20Speech/text_to_speech.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:just_audio/just_audio.dart';
 
 class TTSExample extends StatefulWidget {
   final String text;
@@ -16,12 +16,11 @@ class _TTSExampleState extends State<TTSExample> {
   FlutterTts flutterTts = FlutterTts();
   TextToSpeech tts = TextToSpeech();
   Future<dynamic>? dynamicState;
-  late AudioPlayer _audioPlayer;
+  late Function processAndPlayAudio;
   @override
   void initState() {
     tts.initTts();
     dynamicState = tts.saveFile(text: widget.text);
-    _audioPlayer = AudioPlayer();
     super.initState();
   }
 
@@ -43,29 +42,6 @@ class _TTSExampleState extends State<TTSExample> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const CircularProgressIndicator();
               } else if (snapshot.hasData) {
-                if ((snapshot.data as String).contains('final_output.mp3')) {
-                  () async {
-                    await _audioPlayer.setFilePath(snapshot.data);
-                  }();
-                  return Column(
-                    children: [
-                      ElevatedButton(
-                          onPressed: () {
-                            () async {
-                              await _audioPlayer.play();
-                            }();
-                          },
-                          child: const Text("PLAY")),
-                      ElevatedButton(
-                          onPressed: () {
-                            () async {
-                              await _audioPlayer.pause();
-                            }();
-                          },
-                          child: const Text("PAUSE"))
-                    ],
-                  );
-                } else {
                   return Center(
                     child: Column(
                       children: [
@@ -87,16 +63,19 @@ class _TTSExampleState extends State<TTSExample> {
                             child: const Text("Stop")),
                         ElevatedButton(
                             onPressed: () {
-                              setState(() {
-                                dynamicState = sendFilesToServerForMasking(
-                                    filePath1: (snapshot.data));
-                              });
+                              Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) {
+                      return FinalAudioPlayer(
+                        path: snapshot.data,
+                      );
+                    },
+                  ));
                             },
                             child: const Text("Merge file with masking audio"))
                       ],
                     ),
                   );
-                }
+                
               } else {
                 return const Text("NULL");
               }
