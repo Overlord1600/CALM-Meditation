@@ -14,10 +14,8 @@ class TextToSpeech {
   final FlutterTts _flutterTts = FlutterTts();
   void initTts() async {
     await _flutterTts.setLanguage("en-US");
-    await _flutterTts
-        .setVoice({'name': 'en-us-x-sfg#male_1-local', 'locale': 'en-US'});
     await _flutterTts.setSpeechRate(0.3);
-    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setPitch(0.9);
     await _flutterTts.setVolume(1.0);
     await _flutterTts.setEngine('com.google.android.tts');
   }
@@ -41,12 +39,12 @@ class TextToSpeech {
             ExternalPath.DIRECTORY_MUSIC);
 
     String audioFileName = 'output${UniqueKey()}.mp3';
+    await _flutterTts.setEngine('com.google.android.tts');
     await _flutterTts.synthesizeToFile(text, audioFileName);
     await _flutterTts.awaitSynthCompletion(true);
     String formattedPath = audioFileName.replaceAll('/', '_');
     formattedPath = '$deviceMusicDirectory/$formattedPath';
     print(formattedPath);
-
     File audioFile = File(formattedPath);
     if (await audioFile.exists()) {
       print("File exists");
